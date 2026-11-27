@@ -63,6 +63,10 @@ pub struct Tone {
     pub round_mark: Rgba,
     /// The arrows after the value of a row that opens a list of choices.
     pub updown: Rgba,
+    /// What a row lights while its setting is on, as a switch's track is: the
+    /// accent on a page, and the grey of what cannot be touched where the
+    /// phone offers nothing there.
+    pub on: Rgba,
 }
 
 impl Tone {
@@ -79,6 +83,7 @@ impl Tone {
             round: p.round,
             round_mark: p.round_mark,
             updown: p.updown,
+            on: p.accent,
         }
     }
 
@@ -95,6 +100,7 @@ impl Tone {
             round: t.pal.round,
             round_mark: t.pal.round_mark,
             updown: t.pal.updown,
+            on: t.pal.accent,
         }
     }
 
@@ -114,6 +120,26 @@ impl Tone {
             round: at(0.18),
             round_mark: white,
             updown: at(0.6),
+            on: white,
+        }
+    }
+
+    /// A row the phone offers nothing to change: its words, its value and its
+    /// switch in the grey of a value with nothing to say.
+    pub fn off(t: &Theme) -> Tone {
+        let p = &t.pal;
+        Tone {
+            card: p.card,
+            text: p.value,
+            sub: p.value,
+            value: p.value,
+            chevron: p.value,
+            caption: p.value,
+            faint: p.value,
+            round: p.round,
+            round_mark: p.round_mark,
+            updown: p.value,
+            on: p.value,
         }
     }
 }
@@ -1312,9 +1338,19 @@ pub fn caret_over(at: Rect, draw: impl FnOnce(&mut Canvas, f32, f32)) -> Caret {
 /// Section caption between two cards. `prev_bottom` is the bottom of the card
 /// above (or the content top for the first section). Returns the next card top.
 pub fn section(c: &mut Canvas, t: &Theme, f: &Fonts, prev_bottom: f32, label: &str) -> f32 {
+    section_in(c, t, f, prev_bottom, label, t.pal.section)
+}
+
+/// A section label over a part of the page the phone offers nothing on, in
+/// the grey of what cannot be touched.
+pub fn section_off(c: &mut Canvas, t: &Theme, f: &Fonts, prev_bottom: f32, label: &str) -> f32 {
+    section_in(c, t, f, prev_bottom, label, t.pal.value)
+}
+
+fn section_in(c: &mut Canvas, t: &Theme, f: &Fonts, prev_bottom: f32, label: &str, ink: Rgba) -> f32 {
     let m = &t.m;
     let ink_top = prev_bottom + m.section_label_top;
-    c.text_top(&f.label, label, m.margin + m.inner, ink_top, m.label_px, t.pal.section, None);
+    c.text_top(&f.label, label, m.margin + m.inner, ink_top, m.label_px, ink, None);
     prev_bottom + m.section_block
 }
 
@@ -1674,7 +1710,7 @@ fn draw_row(c: &mut Canvas, t: &Theme, f: &Fonts, r: &Row, lay: &Layout, top: f3
             lay.draw_value(c, t, f, chev_left - m.value_gap, cy, tone.value);
         }
         Trail::Text(_) => lay.draw_value(c, t, f, right - m.inner, cy, tone.value),
-        Trail::Switch(on) => switch(c, t, right - m.inner, cy, on),
+        Trail::Switch(on) => switch(c, t, right - m.inner, cy, on, tone.on),
         Trail::Badge(s) => {
             let (bw, bh) = (m.badge_w, m.badge_h);
             let bx = right - m.inner - bw;
@@ -1869,24 +1905,26 @@ pub fn device_card(c: &mut Canvas, t: &Theme, f: &Fonts, top: f32, title: &str, 
     Block { bottom: top + h, rows: rects }
 }
 
-pub fn switch(c: &mut Canvas, t: &Theme, right: f32, cy: f32, on: bool) {
+pub fn switch(c: &mut Canvas, t: &Theme, right: f32, cy: f32, on: bool, lit: Rgba) {
     let m = &t.m;
     let (w, h, k) = (m.switch_w, m.switch_h, m.knob);
     let x = right - w;
-    c.fill_round_rect(x, cy - h / 2.0, w, h, h / 2.0, if on { t.pal.accent } else { t.pal.switch_off });
+    c.fill_round_rect(x, cy - h / 2.0, w, h, h / 2.0, if on { lit } else { t.pal.switch_off });
     let kx = if on { right - h / 2.0 } else { x + h / 2.0 };
     c.fill_circle(kx, cy, k / 2.0, Rgba::rgb(255, 255, 255));
 }
 
 /// The stock thick slider: a capsule track with the fill and a white knob
-/// that sits inside the fill's rounded end.
-pub fn slider(c: &mut Canvas, t: &Theme, x: f32, top: f32, w: f32, value: f32) {
+/// that sits inside the fill's rounded end. `fill` is the accent where the
+/// slider works, and the grey of what cannot be moved where the phone offers
+/// nothing to set.
+pub fn slider(c: &mut Canvas, t: &Theme, x: f32, top: f32, w: f32, value: f32, fill: Rgba) {
     let m = &t.m;
     let h = m.slider_h;
     let travel = (w - h).max(0.0);
     c.fill_round_rect(x, top, w, h, h / 2.0, t.pal.track);
     let fw = w - travel * (1.0 - value.clamp(0.0, 1.0));
-    c.fill_round_rect(x, top, fw, h, h / 2.0, t.pal.accent);
+    c.fill_round_rect(x, top, fw, h, h / 2.0, fill);
     c.fill_circle(x + fw - h / 2.0, top + h / 2.0, m.slider_knob / 2.0, Rgba::rgb(255, 255, 255));
 }
 
@@ -1906,8 +1944,10 @@ pub enum Caption {
 }
 
 /// Card with a monochrome icon caption, a slider, and an optional row below.
+/// `on` is false where the phone offers the setting nothing: the card stays in
+/// place, greyed, with no track for a finger to move.
 #[allow(clippy::too_many_arguments)]
-pub fn slider_card(c: &mut Canvas, t: &Theme, f: &Fonts, top: f32, caption: Caption, label: &str, value: f32, below: Option<Row>) -> SliderBlock {
+pub fn slider_card(c: &mut Canvas, t: &Theme, f: &Fonts, top: f32, caption: Caption, label: &str, value: f32, on: bool, below: Option<Row>) -> SliderBlock {
     let m = &t.m;
     let (card_x, right) = (m.margin, m.w as f32 - m.margin);
     let below_lay = below.as_ref().map(|r| layout(c, t, f, r));
@@ -1944,14 +1984,16 @@ pub fn slider_card(c: &mut Canvas, t: &Theme, f: &Fonts, top: f32, caption: Capt
             }
         }
     }
-    // The caption is set like the account name, in the softer text colour.
-    c.text_vc(&f.heading, label, card_x + m.dp(53.7), lcy, m.account_title_px, t.pal.info, None);
+    // The caption is set like the account name, in the softer text colour, and
+    // in the grey of a value that says nothing where the setting is off.
+    c.text_vc(&f.heading, label, card_x + m.dp(53.7), lcy, m.account_title_px, if on { t.pal.info } else { t.pal.value }, None);
     let track = Rect::new(card_x + m.inner, slider_top, right - card_x - m.inner * 2.0, m.slider_h);
-    slider(c, t, track.x, track.y, track.w, value);
+    slider(c, t, track.x, track.y, track.w, value, if on { t.pal.accent } else { t.pal.value });
     let mut below_rect = None;
     if let (Some(r), Some(l)) = (below, below_lay) {
         let y = slider_bottom + below_gap;
-        draw_row(c, t, f, &r, &l, y, &Tone::page(t));
+        let tone = if on { Tone::page(t) } else { Tone::off(t) };
+        draw_row(c, t, f, &r, &l, y, &tone);
         below_rect = Some(Rect::new(card_x, y, right - card_x, l.h));
     }
     SliderBlock { bottom: top + h, track, below: below_rect }

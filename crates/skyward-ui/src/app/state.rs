@@ -35,6 +35,11 @@ pub struct State {
     /// How strongly the motor taps, from 0 at the slider's left end to 1
     /// at its right.
     pub vibration: f32,
+    /// The recovery reached the phone's motor, whose strength and taps the
+    /// settings page then offers. A phone whose configuration describes none,
+    /// or whose motor would not open, keeps the card greyed and with nothing
+    /// to touch: there is no strength to set and no tap to turn off.
+    pub motor: bool,
     /// A computer connected over USB is offered internal storage.
     pub file_transfer: bool,
     pub reboot: usize,
@@ -213,6 +218,7 @@ impl Default for State {
             now: 0,
             vibrate: true,
             vibration: SLIDER_START,
+            motor: true,
             file_transfer: true,
             reboot: 0,
             wipe: [false; WIPES.len()],

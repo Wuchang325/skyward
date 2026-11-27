@@ -341,17 +341,26 @@ pub fn settings(cx: &Ctx) -> Frame {
     let mut y = widgets::section(&mut c, t, f, themes.bottom, l.pick(texts::settings::BRIGHTNESS));
     let off = fmt::screen_off(l, SCREEN_OFF[s.screen_off]);
     let below = Row::new(l.pick(texts::page::SCREEN_TIMEOUT)).trail(Trail::Value(&off));
-    let slider = widgets::slider_card(&mut c, t, f, y, Caption::Sun, l.pick(texts::settings::SCREEN_BRIGHTNESS), s.brightness, Some(below));
+    let slider = widgets::slider_card(&mut c, t, f, y, Caption::Sun, l.pick(texts::settings::SCREEN_BRIGHTNESS), s.brightness, true, Some(below));
     out.push(Hit { rect: slider.track, action: Action::Slider(Slider::Brightness) });
     if let Some(r) = slider.below {
         out.push(Hit { rect: r, action: Action::Open(Screen::ScreenOff) });
     }
-    y = widgets::section(&mut c, t, f, slider.bottom, l.pick(texts::settings::VIBRATION));
+    // A phone whose configuration describes no motor the recovery reaches has
+    // no strength to set and no tap of the motor to turn off: its card stays
+    // where the page expects it, greyed, with no track or switch to touch.
+    let motor = s.motor;
+    y = match motor {
+        true => widgets::section(&mut c, t, f, slider.bottom, l.pick(texts::settings::VIBRATION)),
+        false => widgets::section_off(&mut c, t, f, slider.bottom, l.pick(texts::settings::VIBRATION)),
+    };
     let below = Row::new(l.pick(texts::settings::TOUCH_VIBRATION)).trail(Trail::Switch(s.vibrate));
-    let vibration = widgets::slider_card(&mut c, t, f, y, Caption::Vibrate, l.pick(texts::settings::VIBRATION_INTENSITY), s.vibration, Some(below));
-    out.push(Hit { rect: vibration.track, action: Action::Slider(Slider::Vibration) });
-    if let Some(r) = vibration.below {
-        out.push(Hit { rect: r, action: Action::Toggle(Switch::Vibrate) });
+    let vibration = widgets::slider_card(&mut c, t, f, y, Caption::Vibrate, l.pick(texts::settings::VIBRATION_INTENSITY), s.vibration, motor, Some(below));
+    if motor {
+        out.push(Hit { rect: vibration.track, action: Action::Slider(Slider::Vibration) });
+        if let Some(r) = vibration.below {
+            out.push(Hit { rect: r, action: Action::Toggle(Switch::Vibrate) });
+        }
     }
     y = widgets::section(&mut c, t, f, vibration.bottom, l.pick(texts::settings::GENERAL));
     let general = widgets::list(&mut c, t, f, y, &[

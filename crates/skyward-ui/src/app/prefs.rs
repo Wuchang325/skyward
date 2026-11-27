@@ -391,7 +391,7 @@ impl App {
         let value = *value;
         if let Some(fr) = self.frame.as_mut() {
             fr.canvas.fill_rect(track.x, track.y, track.w, track.h, t.pal.card);
-            widgets::slider(&mut fr.canvas, t, track.x, track.y, track.w, value);
+            widgets::slider(&mut fr.canvas, t, track.x, track.y, track.w, value, t.pal.accent);
         }
         self.layer = None;
         self.dirty = true;
@@ -462,6 +462,19 @@ mod tests {
         app.touch(Touch::Down(track.x, y), &f, 0);
         assert!(app.touch(Touch::Up, &f, 0).is_empty(), "with touch vibration off, the motor stays still");
         assert_eq!(app.state.vibration, 0.0, "the strength still moves, down to the slider's left end");
+    }
+
+    #[test]
+    fn a_phone_whose_configuration_describes_no_motor_is_offered_neither_strength_nor_tap() {
+        let (f, i) = (fonts(), info());
+        let mut app = App::new(Screen::Settings, W, H, PPD);
+        assert!(offers(&mut app, &f, &i, Action::Slider(Slider::Vibration)), "a phone keeps its motor until its configuration says otherwise");
+        app.state.motor = false;
+        app.refresh();
+        assert!(!offers(&mut app, &f, &i, Action::Slider(Slider::Vibration)), "no strength to set");
+        assert!(!offers(&mut app, &f, &i, Action::Toggle(Switch::Vibrate)), "no tap of the motor to turn off");
+        assert!(offers(&mut app, &f, &i, Action::Slider(Slider::Brightness)), "the panel's brightness is not the motor's");
+        assert!(offers(&mut app, &f, &i, Action::Open(Screen::ScreenOff)), "and the row under it still opens");
     }
 
     #[test]

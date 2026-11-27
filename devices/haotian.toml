@@ -134,4 +134,6 @@ recovery = "675c3755a00c993ad706550d79377e906abe2547f423f29ced2fb3587d170bd8"
 # on from the sound card's side, which a recovery never brings up. That leaves
 # the phone vibrating through Xiaomi's own vibrator service, which asks for
 # /dev/qcom_haptic, and this phone is left without vibration rather than
-# without pages: [haptics] is what makes the motor required.
+# without pages: [haptics] is what makes the motor required. Without it the
+# settings page keeps its vibration card in place, greyed and with nothing to
+# touch, rather than a strength and a switch that would change nothing.

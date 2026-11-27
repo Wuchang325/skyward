@@ -1384,6 +1384,12 @@ impl<'a> Pages<'a> {
                 false
             }
         };
+        // The settings page offers the motor's strength and the switch that
+        // turns its taps off only where the recovery reached a motor: a phone
+        // whose configuration describes none, or whose motor would not open,
+        // keeps the card greyed with nothing to touch, rather than a strength
+        // and a switch that change nothing.
+        app.state.motor = haptics.is_some();
         app.state.phone_logs = cfg.wipe.logs.len();
         // Skyward lives in a recovery partition of each slot where the phone
         // has them, and the install page then offers to keep it there. Such a
